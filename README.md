@@ -351,4 +351,4 @@ MIT - Use freely for any project.
 
 ---
 
-**Questions?** This template is designed to be self-explanatory. Read the code - it's only 400 lines, all with clear comments explaining the "why" not just the "what".
+**Questions or want to collaborate?** Welcome — this template is designed to be approachable and easy to extend. Read the code (about 400 lines) — it contains clear comments explaining the "why" as well as the "what". If you'd like to contribute or discuss improvements, email gideont@gmail.com and let's build together.
