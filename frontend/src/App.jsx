@@ -2,48 +2,62 @@ import { useState, useEffect, useMemo } from 'react'
 import RealtimeChart from './components/RealtimeChart'
 import { formatDateTime } from './api'
 import { calculateTemperatureRanges, aggregateTemperatureByBucket, getCurrentValues } from './utils'
+import { mergeMetrics, filterExpiredData, saveMetricsToStorage, loadMetricsFromStorage, getNewDataPointCount } from './dataManager'
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import './App.css'
 
 /**
- * Main dashboard application with theme support and enhanced visuals.
+ * Main dashboard application with decoupled data flow architecture.
  * 
- * Features:
- * - Dark/light theme toggle with localStorage persistence
- * - Real-time metrics polling with configurable intervals
- * - Summary strip showing current values per sensor
- * - Multiple chart types (line, pie, bar)
- * - Individual sensor charts with distinct colors
- * - Performance optimized with memoization and data limiting
+ * ARCHITECTURE OVERVIEW:
+ * =====================
+ * 1. DATA BUFFERING: Metrics are stored in state and persisted to localStorage
+ * 2. APPEND-ONLY UPDATES: API responses are merged, not replaced (append-only pattern)
+ * 3. TIMESTAMP DEDUPLICATION: Uses timestamp as unique key to prevent duplicate data
+ * 4. STORAGE RECOVERY: On page load, state is hydrated from localStorage
+ * 5. DATA CLEANUP: Old data (>60 min) is automatically removed
+ * 6. DECOUPLED RENDERING: Charts render from buffered state, independent of API polling
  * 
- * Theme system uses CSS variables for seamless switching.
+ * BENEFITS:
+ * - Smooth, responsive charts even during data updates
+ * - No full dataset replacement on each poll
+ * - Data persistence across page reloads
+ * - Reduced unnecessary re-renders
+ * - Predictable data flow
  */
 function App() {
-    // State for metrics and display
-    const [metrics, setMetrics] = useState([])
+    // ========== DATA BUFFERING ==========
+    // Initialize metrics from localStorage on mount (hydration)
+    // This allows data to survive page reloads
+    const [metrics, setMetrics] = useState(() => {
+        const stored = loadMetricsFromStorage()
+        return stored
+    })
+
+    // Display state
     const [lastUpdatedTime, setLastUpdatedTime] = useState('')
     const [loading, setLoading] = useState(true)
     const [latestDataTime, setLatestDataTime] = useState(null)
     const [currentTime, setCurrentTime] = useState(Date.now())
     const [dataFreshness, setDataFreshness] = useState('🟢 Live')
 
-    // State for theme (default: dark)
+    // Theme state
     const [theme, setTheme] = useState('dark')
 
-    // State for polling interval (in milliseconds)
+    // Polling interval state
     const [pollingInterval, setPollingInterval] = useState(() => {
         const saved = localStorage.getItem('dashboard-polling-interval')
-        return saved ? parseInt(saved) : 10000 // Default 10 seconds
+        return saved ? parseInt(saved) : 10000
     })
 
-    // Sensor colors mapping for consistent visualization
+    // Sensor colors
     const SENSOR_COLORS = {
-        'THS No. 1': '#ef4444', // Red
-        'THS No. 2': '#3b82f6', // Blue
-        'THS No. 3': '#10b981', // Green
+        'THS No. 1': '#ef4444',
+        'THS No. 2': '#3b82f6',
+        'THS No. 3': '#10b981',
     }
 
-    // Initialize theme from localStorage on mount
+    // Initialize theme
     useEffect(() => {
         const savedTheme = localStorage.getItem('dashboard-theme') || 'dark'
         setTheme(savedTheme)
@@ -65,7 +79,8 @@ function App() {
         localStorage.setItem('dashboard-polling-interval', newInterval)
     }
 
-    // Calculate data freshness based on metrics arrival
+    // ========== DATA FRESHNESS CALCULATION ==========
+    // Monitor data staleness independently of polling
     useEffect(() => {
         if (metrics.length === 0) {
             setDataFreshness('🔴 No data')
@@ -75,7 +90,7 @@ function App() {
         const latestTimestamp = metrics[metrics.length - 1].timestamp
         setLatestDataTime(latestTimestamp)
 
-        // Calculate freshness based on current time, but don't trigger updates every second
+        // Calculate freshness based on current time
         const calculateFreshness = () => {
             const secondsAgo = Math.floor((Date.now() / 1000) - latestTimestamp)
             if (secondsAgo <= 30) {
@@ -90,20 +105,57 @@ function App() {
         setDataFreshness(calculateFreshness())
     }, [metrics])
 
-    // Polling logic: fetch metrics every N seconds (configurable)
+    // ========== APPEND-ONLY DATA UPDATE PATTERN ==========
+    /**
+     * Update metrics with new data from API using append-only pattern.
+     * This is the core of the decoupled data flow architecture:
+     * - Merges new data with existing data (no full replacement)
+     * - Deduplicates using timestamp as unique key
+     * - Removes data older than 60 minutes
+     * - Persists to localStorage for recovery
+     * - Charts update only when data actually changes
+     */
+    const updateMetricsWithNewData = (newData) => {
+        setMetrics(prevMetrics => {
+            // Quickly determine whether this update will change anything.
+            // - Filter out expired points from previous state
+            // - Count incoming unique points (by composite key)
+            const prevClean = filterExpiredData(prevMetrics)
+            const incomingClean = filterExpiredData(newData)
+            const newCount = getNewDataPointCount(prevClean, incomingClean)
+
+            // If there are no new points and no expirations to remove, skip work.
+            if (newCount === 0 && prevMetrics.length === prevClean.length) {
+                return prevMetrics
+            }
+
+            // Otherwise merge, cleanup and persist as before
+            const merged = mergeMetrics(prevMetrics, newData)
+            const cleaned = filterExpiredData(merged)
+            saveMetricsToStorage(cleaned)
+            return cleaned
+        })
+    }
+
+    // ========== DATA POLLING WITH APPEND-ONLY UPDATES ==========
+    /**
+     * Poll the API at the configured interval.
+     * Key difference from before:
+     * - Uses updateMetricsWithNewData() instead of setMetrics()
+     * - Merges incoming data with existing buffered data
+     * - No full dataset replacement - only new points are added
+     * - Charts remain responsive because data updates are incremental
+     */
     useEffect(() => {
-        /**
-         * Poll the API at the configured interval.
-         * Fetches fresh metrics and server timestamp for display.
-         */
         const pollInterval = setInterval(async () => {
             try {
                 const response = await fetch('http://localhost:8000/api/metrics')
                 if (response.ok) {
                     const json = await response.json()
                     if (json.data && json.data.length > 0) {
-                        setMetrics(json.data)
-                        setCurrentTime(Date.now())  // Update currentTime only on data arrival
+                        // Use append-only update instead of replacement
+                        updateMetricsWithNewData(json.data)
+                        setCurrentTime(Date.now())
                         if (json.timestamp) {
                             setLastUpdatedTime(formatDateTime(json.timestamp))
                         }
@@ -115,13 +167,15 @@ function App() {
             setLoading(false)
         }, pollingInterval)
 
-        // Fetch immediately on mount
+        // Fetch immediately on mount using append-only pattern
+        // If localStorage has data, it's already loaded into state
+        // This fetch will merge with that data
         fetch('http://localhost:8000/api/metrics')
             .then((res) => res.json())
             .then((json) => {
                 if (json.data && json.data.length > 0) {
-                    setMetrics(json.data)
-                    setCurrentTime(Date.now())  // Update currentTime only on data arrival
+                    updateMetricsWithNewData(json.data)
+                    setCurrentTime(Date.now())
                     if (json.timestamp) {
                         setLastUpdatedTime(formatDateTime(json.timestamp))
                     }
@@ -136,8 +190,11 @@ function App() {
         return () => clearInterval(pollInterval)
     }, [pollingInterval])
 
-    // Limit data to last 60 minutes to improve performance - memoized
-    // Only re-filter when metrics actually change, not on currentTime updates
+    // ========== DECOUPLED CHART RENDERING ==========
+    // Charts render from buffered metrics state, not directly from API responses.
+    // This separates data updates from rendering, enabling smooth interactions.
+    // Only re-compute derived data when metrics actually change.
+
     const limitedMetrics = useMemo(() => {
         if (metrics.length === 0) return []
         const sixtyMinutesAgo = Math.floor(Date.now() / 1000) - 3600
@@ -379,9 +436,8 @@ function App() {
             <div className="dashboard-footer">
                 <strong>How it works:</strong>
                 <ul style={{ marginTop: '10px', marginLeft: '20px', lineHeight: '1.6' }}>
-                    <li>Frontend polls <code>/api/metrics</code> every 10 seconds (configurable)</li>
+                    <li>Frontend polls <code>/api/metrics</code> every 1 second (configurable)</li>
                     <li>Shows all 3 sensors (THS No. 1, 2, 3) with distinct colors on individual charts</li>
-                    <li>Dashboard tracks latest data point and shows freshness (🟢 Live / 🟡 Old / 🔴 Stale)</li>
                     <li>Automatic alerts if no data for &gt;1 minute</li>
                     <li>Data limited to last 60 minutes for performance optimization</li>
                 </ul>
