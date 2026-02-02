@@ -1,5 +1,7 @@
 # Frontend Data Flow Refactoring
 
+Friendly note: Welcome — this documentation aims to help you understand and build on the refactor. If you'd like to contribute, collaborate, or just say hi, email gideont@gmail.com. Everyone is welcome to join the effort.
+
 ## Problem Statement
 The original implementation fetched the entire dataset every second and replaced it in state, causing:
 - Full chart re-renders on every data update

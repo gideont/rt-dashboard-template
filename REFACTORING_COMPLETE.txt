@@ -2,6 +2,8 @@
                    DATA FLOW REFACTORING - COMPLETE ✅
 ================================================================================
 
+Friendly note: Congratulations to anyone reading this — this project is built to be collaborative. If you'd like to join, give feedback or contribute, please email gideont@gmail.com. We'd be happy to work with you.
+
 TASK: Refactor frontend data flow to decouple API polling from chart rendering
 
 STATUS: ✨ PRODUCTION-READY

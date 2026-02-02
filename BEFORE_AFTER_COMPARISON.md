@@ -1,5 +1,7 @@
 # Before & After Code Comparison
 
+Friendly note: Thanks for reviewing this comparison — the goal is to make the changes easy to adopt. If you're interested in contributing or discussing improvements, please email gideont@gmail.com. Contributions and feedback are warmly welcomed.
+
 ## Core Change: Data Update Pattern
 
 ### BEFORE: Direct Replacement

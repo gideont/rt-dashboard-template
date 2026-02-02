@@ -1,5 +1,7 @@
 # Data Flow Refactoring Summary
 
+Friendly note: Thanks for taking a look — this refactor was written to be approachable and collaborative. If you'd like to contribute, ask questions, or help improve the dashboard, please email gideont@gmail.com — we'd love to build together.
+
 ## What Changed
 
 The frontend now decouples **API polling** from **chart rendering** using an append-only data update pattern.
@@ -80,3 +82,5 @@ Key changes:
 The key insight: **Append new data instead of replacing everything**.
 
 This is a common pattern in real-time systems and makes for much smoother user experiences.
+
+Get involved: Interested in contributing or learning more? Reach out to gideont@gmail.com — all help and ideas are welcome.

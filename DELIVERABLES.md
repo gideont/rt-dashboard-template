@@ -1,5 +1,7 @@
 # Refactoring Deliverables
 
+Friendly note: This package is intended to be welcoming and useful — if you'd like to help extend it or collaborate, please email gideont@gmail.com. Contributions big or small are welcome.
+
 ## 📦 What's Included
 
 ### Code Changes

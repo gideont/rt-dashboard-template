@@ -1,5 +1,7 @@
 # Refactoring Validation Checklist
 
+Friendly note: Thanks for helping validate this work — your checks and contributions are appreciated. If you'd like to join the project or have questions, email gideont@gmail.com and we'll get you connected.
+
 ## ✅ Requirements Met
 
 ### 1. DATA FLOW

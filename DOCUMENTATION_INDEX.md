@@ -1,5 +1,7 @@
 # Data Flow Refactoring - Documentation Index
 
+Friendly note: Hi there — this index is meant to help you navigate the refactor and get involved. If you're curious or want to contribute, please email gideont@gmail.com and we'll welcome you aboard.
+
 ## 🚀 Quick Navigation
 
 ### For Project Managers

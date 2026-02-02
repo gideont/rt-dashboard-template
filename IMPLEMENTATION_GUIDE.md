@@ -1,5 +1,7 @@
 # Implementation Guide
 
+Friendly note: This guide is written to help you jump in quickly. If you'd like to help improve docs or contribute code, please reach out at gideont@gmail.com — we'd love to collaborate.
+
 ## Quick Start
 
 ### For Users
